@@ -14,7 +14,7 @@ Microsserviço responsável pela análise automatizada de código enviado por me
 ## Integrantes
 
 - Sophia Betoni
-- Gi A. Dias
+- Giovanna Dias
 
 ## Status
 
