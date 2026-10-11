@@ -3,5 +3,13 @@ venv/
 __pycache__/
 *.pyc
 .pytest_cache/
-.env
 .vscode/
+
+.env
+.env.*
+!.env.example
+
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
