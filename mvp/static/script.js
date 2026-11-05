@@ -51,7 +51,6 @@ elemento("origem").addEventListener("change", () => {
 });
 
 elemento("exemplo").addEventListener("click", () => {
-  elemento("caminho").value = "controllers/exemplo.py";
   elemento("codigo").value = exemplo;
   elemento("arquivos").value = "";
 });
@@ -93,3 +92,186 @@ function mostrarAchados() {
 
 function mostrarRevisao(revisao) {
   revisaoAtual = revisao;
+
+  elemento("total-arquivos").textContent = revisao.arquivos;
+  elemento("total-achados").textContent = revisao.achados.length;
+  elemento("total-testes").textContent = revisao.testes.length;
+
+  const origem = revisao.pr
+    ? `PR #${revisao.pr.numero} · ${revisao.pr.titulo}`
+    : "Revisão de arquivos";
+
+  elemento("contexto").textContent =
+    `${origem} · ${revisao.arquitetura} · ` +
+    new Date(revisao.criado_em).toLocaleString("pt-BR");
+
+  elemento("painel-ia").hidden = false;
+  elemento("ia-status").textContent = revisao.ia.status;
+  elemento("ia-texto").textContent = revisao.ia.texto;
+  elemento("acoes").hidden = false;
+  elemento("previa").hidden = !revisao.pr;
+
+  mostrarAchados();
+}
+
+elemento("filtro").addEventListener("change", mostrarAchados);
+
+elemento("analisar").addEventListener("click", async () => {
+  const botao = elemento("analisar");
+  botao.disabled = true;
+  elemento("status").textContent =
+    "Analisando… As integrações podem levar alguns segundos.";
+
+  try {
+    const dados = {
+      arquitetura: elemento("arquitetura").value,
+      usar_ia: elemento("usar-ia").checked,
+    };
+
+    if (elemento("origem").value === "github") {
+      dados.pr_url = elemento("pr-url").value.trim();
+
+      if (!dados.pr_url) {
+        throw new Error("Informe o link do Pull Request.");
+      }
+    } else {
+      const selecionados = Array.from(elemento("arquivos").files);
+
+      if (selecionados.length) {
+        if (selecionados.length > 20) {
+          throw new Error("Selecione até 20 arquivos Python.");
+        }
+
+        if (selecionados.reduce((total, arquivo) => total + arquivo.size, 0) > 100000) {
+          throw new Error("Os arquivos juntos excedem o limite de 100 KB.");
+        }
+
+        dados.arquivos = [];
+
+        for (const arquivo of selecionados) {
+          dados.arquivos.push({
+            caminho: arquivo.name,
+            conteudo: await arquivo.text(),
+          });
+        }
+      } else {
+        if (!elemento("codigo").value.trim()) {
+          throw new Error("Cole um código ou carregue o exemplo.");
+        }
+
+        dados.arquivos = [{
+          caminho: "trecho.py",
+          conteudo: elemento("codigo").value,
+        }];
+      }
+    }
+
+    const revisao = await api("/api/analisar", dados);
+
+    elemento("filtro").value = "Todos";
+    mostrarRevisao(revisao);
+    elemento("status").textContent = "Análise concluída.";
+    await carregarHistorico();
+  } catch (erro) {
+    elemento("status").textContent = erro.message;
+  } finally {
+    botao.disabled = false;
+  }
+});
+
+async function carregarHistorico() {
+  try {
+    const revisoes = await api("/api/historico");
+    const container = elemento("historico");
+    container.replaceChildren();
+
+    if (!revisoes.length) {
+      container.textContent = "Nenhuma revisão salva ainda.";
+      return;
+    }
+
+    for (const revisao of revisoes) {
+      const linha = document.createElement("div");
+      linha.className = "item-historico";
+
+      const descricao = document.createElement("span");
+      descricao.textContent =
+        `${new Date(revisao.criado_em).toLocaleString("pt-BR")} · ` +
+        `${revisao.achados.length} achados · ${revisao.arquitetura}`;
+
+      const botao = document.createElement("button");
+      botao.className = "secundario";
+      botao.textContent = "Abrir";
+
+      botao.addEventListener("click", () => {
+        elemento("filtro").value = "Todos";
+        mostrarRevisao(revisao);
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      });
+
+      linha.append(descricao, botao);
+      container.append(linha);
+    }
+  } catch (erro) {
+    elemento("historico").textContent = erro.message;
+  }
+}
+
+elemento("exportar").addEventListener("click", () => {
+  if (!revisaoAtual) return;
+
+  const arquivo = new Blob(
+    [revisaoAtual.markdown],
+    { type: "text/markdown;charset=utf-8" }
+  );
+
+  const url = URL.createObjectURL(arquivo);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `revisao-${revisaoAtual.id}.md`;
+  link.click();
+
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+});
+
+elemento("previa").addEventListener("click", () => {
+  if (!revisaoAtual?.pr) return;
+
+  elemento("destino").textContent = revisaoAtual.pr.url;
+  elemento("comentario").value = revisaoAtual.markdown;
+  elemento("status-comentario").textContent = "";
+  elemento("publicar").disabled = revisoesPublicadas.has(revisaoAtual.id);
+  elemento("modal").showModal();
+});
+
+elemento("modal").addEventListener("cancel", (evento) => {
+  if (elemento("fechar").disabled) evento.preventDefault();
+});
+
+elemento("fechar").addEventListener("click", () => {
+  elemento("modal").close();
+});
+
+elemento("publicar").addEventListener("click", async () => {
+  if (!revisaoAtual?.pr) return;
+
+  const botao = elemento("publicar");
+  botao.disabled = true;
+  elemento("fechar").disabled = true;
+  elemento("status-comentario").textContent = "Publicando…";
+
+  try {
+    const id = revisaoAtual.id;
+    await api(`/api/revisoes/${id}/comentar`, {});
+    revisoesPublicadas.add(id);
+    elemento("status-comentario").textContent =
+      "Comentário publicado no Pull Request.";
+  } catch (erro) {
+    elemento("status-comentario").textContent = erro.message;
+    botao.disabled = false;
+  } finally {
+    elemento("fechar").disabled = false;
+  }
+});
+
+carregarHistorico();

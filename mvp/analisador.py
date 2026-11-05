@@ -31,6 +31,42 @@ REGRAS = {
             "motivo": "Casos de uso não devem depender da apresentação.",
         },
     ],
+    "mvc": [
+        {
+            "origem": "models/",
+            "proibidos": ["controllers", "views"],
+            "motivo": "Models devem ser independentes de controllers e views.",
+        },
+        {
+            "origem": "views/",
+            "proibidos": ["sqlite3", "psycopg2"],
+            "motivo": "Views devem cuidar da apresentação sem acessar o banco diretamente.",
+        },
+    ],
+    "hexagonal": [
+        {
+            "origem": "domain/",
+            "proibidos": ["adapters", "infrastructure", "flask", "fastapi", "sqlite3"],
+            "motivo": "O domínio deve ser independente de adaptadores e infraestrutura.",
+        },
+        {
+            "origem": "ports/",
+            "proibidos": ["adapters", "infrastructure"],
+            "motivo": "Portas definem contratos e devem ser independentes de implementações.",
+        },
+    ],
+    "onion": [
+        {
+            "origem": "domain/",
+            "proibidos": ["application", "infrastructure", "presentation", "controllers"],
+            "motivo": "O domínio deve ser independente das camadas externas.",
+        },
+        {
+            "origem": "application/",
+            "proibidos": ["infrastructure", "presentation", "controllers"],
+            "motivo": "A camada de aplicação deve depender do domínio e de abstrações.",
+        },
+    ],
 }
 
 

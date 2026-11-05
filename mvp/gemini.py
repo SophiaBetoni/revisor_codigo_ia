@@ -37,7 +37,7 @@ def consultar_ia(arquivos, relatorio):
             "https://generativelanguage.googleapis.com/v1beta/interactions",
             headers={
                 "x-goog-api-key": chave,
-                "Api-Revision": "2026-05-07",
+                "Api-Revision": "2026-05-20",
             },
             allow_redirects=False,
             json={
